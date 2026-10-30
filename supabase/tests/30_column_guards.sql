@@ -1,0 +1,27 @@
+create or replace function pg_temp.act(u text) returns void language plpgsql as $$ begin perform set_config('request.jwt.claim.sub', coalesce(u,''), false); end $$;
+-- 20_status_and_team removes the staff member; put them back for these tests
+insert into store_members select id,'00000000-0000-0000-0000-0000000000b2','staff' from stores where slug='yasmeen-home' on conflict do nothing;
+set role authenticated; select pg_temp.act('00000000-0000-0000-0000-0000000000b2');
+select 'G1 staff changes variant price (expect error)' as t; update product_variants set price=1 where external_id='v1';
+select 'G2 staff sets stock_qty directly (expect error)' as t; update product_variants set stock_qty=99 where external_id='v1';
+select 'G3 staff changes product price / review_status (expect error)' as t; update products set price=1, review_status='ok' where external_id='2056';
+select 'G4 staff toggles manual_hidden ok' as t; update products set manual_hidden=true where external_id='2056'; select manual_hidden from products where external_id='2056';
+select 'G5 staff flips stock_applied (expect error)' as t; update orders set stock_applied=true where ref='YH-1';
+select 'G6 staff forges created_by + order_id -> overwritten' as t;
+insert into inventory_movements (store_id,variant_id,delta,reason,created_by,order_id) select store_id,id,2,'restock','00000000-0000-0000-0000-0000000000b1',gen_random_uuid() from product_variants where external_id='v1';
+select created_by, order_id from inventory_movements order by id desc limit 1;
+select 'G7 staff edits staff_note ok' as t; update orders set staff_note='تمام' where ref='YH-1'; select staff_note from orders where ref='YH-1';
+reset role; set role authenticated; select pg_temp.act('00000000-0000-0000-0000-0000000000b1');
+select 'G8 owner edits product price ok' as t; update products set price=210 where external_id='2056'; select price from products where external_id='2056';
+select 'G9 owner moves product to other store (expect error)' as t; update products set store_id=(select id from stores where slug='other-shop') where external_id='2056';
+reset role;
+set role authenticated; select pg_temp.act('00000000-0000-0000-0000-0000000000b2');
+select 'G10 staff starts counting uncounted variant at 0 ok' as t; update product_variants set stock_qty=0 where external_id='v2'; select stock_qty from product_variants where external_id='v2';
+select 'G11 staff marks order demo (expect error)' as t; update orders set is_demo=true where ref='YH-1';
+select 'G12 timestamps: confirm, back, confirm again' as t;
+update orders set status='confirmed' where ref='YH-1'; update orders set status='pending_review' where ref='YH-1';
+select confirmed_at is null as cleared from orders where ref='YH-1';
+reset role; set role authenticated; select pg_temp.act('00000000-0000-0000-0000-0000000000b1');
+select 'G13 owner edits variant price ok' as t; update product_variants set price=199 where external_id='v1'; select price from product_variants where external_id='v1';
+select 'G14 owner sets stock_qty directly (expect error)' as t; update product_variants set stock_qty=50 where external_id='v1';
+reset role;

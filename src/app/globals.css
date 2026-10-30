@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+/*
+ * Theme. Every page reads colours from these variables only (bg-primary, text-muted, border-line…).
+ * One product colour (teal) for every store, so the dashboard looks like one product.
+ */
+:root {
+  --primary: #0d9488;
+  --primary-hover: #0f766e;
+  --primary-soft: #effbf9;
+  --primary-ring: #99e0d6;
+  --primary-ink: #0f6b63;
+  --on-primary: #ffffff;
+
+  --canvas: #f7f8fa;
+  --surface: #ffffff;
+  --surface-muted: #f2f4f7;
+  --line: #e4e7ec;
+
+  --ink: #101828;
+  --muted: #5d6779;
+  --subtle: #8a93a3;
+
+  --info: #2563eb;
+  --info-soft: #eff4ff;
+  --warning: #b45309;
+  --warning-soft: #fff7e8;
+  --success: #067647;
+  --success-soft: #ecfdf3;
+  --accent: #6941c6;
+  --accent-soft: #f4f0ff;
+  --danger: #d92d20;
+  --danger-soft: #fef3f2;
+  --neutral: #475467;
+  --neutral-soft: #f2f4f7;
+
+  --radius-card: 12px;
+  --radius-control: 8px;
+  --radius-chip: 6px;
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.05);
+  --shadow-pop: 0 12px 24px -6px rgb(16 24 40 / 0.14), 0 4px 8px -4px rgb(16 24 40 / 0.06);
+
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-ring: var(--primary-ring);
+  --color-primary-ink: var(--primary-ink);
+  --color-on-primary: var(--on-primary);
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-line: var(--line);
+
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-neutral: var(--neutral);
+  --color-neutral-soft: var(--neutral-soft);
+
+  --radius-card: var(--radius-card);
+  --radius-control: var(--radius-control);
+  --radius-chip: var(--radius-chip);
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+
+  --font-sans: var(--font-arabic), system-ui, sans-serif;
+  --default-transition-duration: 200ms;
+
+  --animate-pop-in: pop-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  --animate-slide-in: slide-in 0.3s ease-out;
+  --animate-ring: ring 1.6s ease-out infinite;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+
+html,
+body {
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer base {
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
+/* prices, order numbers and times keep their width when they change */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

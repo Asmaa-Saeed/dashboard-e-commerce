@@ -1,0 +1,11 @@
+create or replace function pg_temp.act(u text) returns void language plpgsql as $$ begin perform set_config('request.jwt.claim.sub', coalesce(u,''), false); end $$;
+set role authenticated; select pg_temp.act('00000000-0000-0000-0000-0000000000b2');
+select 'T25 cancelled -> delivered (expect error)' as t; update orders set status='delivered' where ref='YH-1';
+select 'T26 cancelled -> pending_review ok' as t; update orders set status='pending_review' where ref='YH-1'; select status from orders where ref='YH-1';
+select 'T27 store_team' as t; select email, role from store_team((select id from stores where slug='yasmeen-home'));
+reset role; set role authenticated; select pg_temp.act('00000000-0000-0000-0000-0000000000b1');
+select 'T28 owner removes self as last owner (expect error)' as t; delete from store_members where user_id='00000000-0000-0000-0000-0000000000b1';
+select 'T29 owner removes staff ok' as t; delete from store_members where user_id='00000000-0000-0000-0000-0000000000b2'; select count(*) from store_members where store_id=(select id from stores where slug='yasmeen-home');
+reset role; set role authenticated; select pg_temp.act('00000000-0000-0000-0000-00000000000a');
+select 'T30 admin deletes test store with owner (cascade ok)' as t; delete from stores where slug='test-shop'; select count(*) from stores;
+reset role;
