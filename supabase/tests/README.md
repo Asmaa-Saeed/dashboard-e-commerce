@@ -16,6 +16,11 @@ PGPASSWORD=test-pass-123 psql -h 127.0.0.1 -U n8n_bot -d t -f 40_bot_functions.s
 
 # رد الفريق من اللوحة (كـ postgres)
 psql -d t -f 50_staff_reply.sql
+
+# إشعارات الهاتف: pg_net و Vault مش موجودين على Postgres المحلي، فبنحط بدالهم stub
+psql -d t -f 60_push_stub.sql
+sed 's/^create extension if not exists pg_net.*$//' ../05_push_notifications.sql | psql -d t
+psql -d t -f 60_push_notifications.sql
 ```
 
-عدد الـ ERROR المتوقع: 8 ثم 2 ثم 7 ثم 7 ثم 2، وكلها رفض مقصود.
+عدد الـ ERROR المتوقع: 8 ثم 2 ثم 7 ثم 7 ثم 2 ثم 5، وكلها رفض مقصود.

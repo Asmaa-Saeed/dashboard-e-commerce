@@ -61,3 +61,62 @@ self.addEventListener("fetch", (event) => {
   }
   // Everything else (RSC data, API calls): default network behaviour.
 });
+
+// ---------------------------------------------------------------------------
+// Phone notifications (new order, conversation needs a person).
+// Sent by the Supabase Edge Function `send-push`. The phone plays its own notification
+// sound; web notifications cannot carry a custom sound file.
+// ---------------------------------------------------------------------------
+
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : "" };
+  }
+
+  const title = data.title || "Flowpal";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/badge-96.png",
+      tag: data.tag || undefined,
+      renotify: Boolean(data.tag), // a repeated tag still rings
+      requireInteraction: true, // stays until the team opens or closes it
+      vibrate: [250, 120, 250, 120, 400],
+      silent: false,
+      lang: "ar",
+      dir: "rtl",
+      data: { url: typeof data.url === "string" && data.url.startsWith("/") ? data.url : "/" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url || "/", self.location.origin).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(async (clients) => {
+      for (const client of clients) {
+        if (new URL(client.url).origin === self.location.origin && "focus" in client) {
+          await client.focus();
+          if ("navigate" in client) await client.navigate(target).catch(() => {});
+          return;
+        }
+      }
+      await self.clients.openWindow(target);
+    }),
+  );
+});
+
+// The browser rotated this phone's push address: save the new one so notifications keep coming.
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) client.postMessage({ type: "push-subscription-changed" });
+    }),
+  );
+});

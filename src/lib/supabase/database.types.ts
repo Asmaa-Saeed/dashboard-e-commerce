@@ -1012,6 +1012,8 @@ export type Database = {
       is_store_member: { Args: { p_store: string }; Returns: boolean }
       is_store_owner: { Args: { p_store: string }; Returns: boolean }
       queue_staff_reply: { Args: { p_conversation: string; p_text: string }; Returns: Json }
+      register_push_subscription: { Args: { p_store: string; p_endpoint: string; p_p256dh: string; p_auth: string; p_user_agent?: string | null }; Returns: undefined }
+      unregister_push_subscription: { Args: { p_endpoint: string }; Returns: undefined }
       my_stores: { Args: never; Returns: { store_id: string; slug: string; name: string; role: string; brand_color: string; logo_url: string | null }[] }
       store_stats: { Args: { p_store: string; p_from: string; p_to?: string }; Returns: Json }
       store_team: { Args: { p_store: string }; Returns: { user_id: string; email: string; role: string; created_at: string }[] }
