@@ -2,6 +2,7 @@ import { requireStoreBySlug } from "@/lib/auth/dal";
 import { getNavCounts } from "@/features/stores/nav-counts";
 import { AppShell } from "@/components/shell/app-shell";
 import { StoreLive } from "@/components/shell/store-live";
+import { PushCard, PushProvider } from "@/components/pwa/push-notifications";
 
 const ROLE_LABEL = { owner: "صاحب المتجر", staff: "موظف", admin: "إدارة المنصة" } as const;
 
@@ -12,6 +13,7 @@ export default async function StoreLayout({ children, params }: LayoutProps<"/s/
 
   return (
       <StoreLive storeId={store.id} ordersHref={`/s/${store.slug}/orders`}>
+        <PushProvider storeId={store.id}>
         <AppShell
           store={{ name: store.name, slug: store.slug, logoUrl: store.logo_url }}
           email={user.email}
@@ -25,8 +27,10 @@ export default async function StoreLayout({ children, params }: LayoutProps<"/s/
               اشتراك المتجر متوقف، والبوت لا يرد على العملاء حاليًا. تواصل مع فريق الدعم.
             </p>
           ) : null}
+          <PushCard />
           {children}
         </AppShell>
+        </PushProvider>
       </StoreLive>
   );
 }

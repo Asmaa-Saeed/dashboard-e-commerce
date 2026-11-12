@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { signOut } from "@/app/login/actions";
 import { cn } from "@/lib/cn";
+import { PushButton } from "@/components/pwa/push-notifications";
+import { stopPushOnThisDevice } from "@/components/pwa/use-push";
 import { Bell, BellSlash, ChartBar, ChatsCircle, GearSix, List, Receipt, SignOut, SquaresFour, Tag, X, type Icon } from "@/components/ui/icons";
 import type { NavCounts } from "@/features/stores/nav-counts";
 import { useStoreLive, type LiveState } from "./store-live";
@@ -72,7 +74,7 @@ export function AppShell({ store, email, roleLabel, canManage, isAdmin, counts, 
               </p>
               <p className="text-[12px] text-muted">{roleLabel}</p>
             </div>
-            <form action={signOut}>
+            <form action={async () => { await stopPushOnThisDevice(); await signOut(); }}>
               <button type="submit" className="grid size-8 shrink-0 place-items-center rounded-control text-subtle transition hover:bg-danger-soft hover:text-danger" aria-label="تسجيل الخروج" title="تسجيل الخروج">
                 <SignOut className="size-[18px]" />
               </button>
@@ -179,6 +181,7 @@ function TopBar({ storeName, pageLabel, onMenu }: { storeName: string; pageLabel
       </nav>
       <div className="ms-auto flex items-center gap-2">
         <LiveBadge state={live} />
+        <PushButton />
         <button
           type="button"
           onClick={() => setSoundOn(!soundOn)}

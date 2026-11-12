@@ -15,6 +15,10 @@ export function buildCsp({ nonce, supabaseUrl, isDev }: { nonce: string; supabas
     "img-src": ["'self'", "data:", "blob:", "https:"],
     "font-src": ["'self'"],
     "connect-src": ["'self'", supabase.origin, supabaseWs, ...(isDev ? ["ws:"] : [])],
+    // the installable-app files (public/sw.js and /manifest.webmanifest); needed because
+    // 'strict-dynamic' makes script-src ignore 'self', and workers fall back to script-src
+    "worker-src": ["'self'"],
+    "manifest-src": ["'self'"],
     "object-src": ["'none'"],
     "base-uri": ["'self'"],
     "form-action": ["'self'"],
