@@ -42,7 +42,7 @@ export async function updateConversation(_prev: ActionResult | null, formData: F
     if (!updated.length) return fail("المحادثة غير موجودة.");
 
     revalidatePath(`/s/${store.slug}`, "layout");
-    const messages = { take_over: `تم. سيتوقف البوت ${BOT_PAUSE_HOURS} ساعة لترد بنفسك.`, back_to_bot: "عادت المحادثة إلى البوت.", close: "تم إغلاق المحادثة." };
+    const messages = { take_over: `تم. سيتوقف البوت ${BOT_PAUSE_HOURS} ساعة لترد بنفسك.`, back_to_bot: "عادت المحادثة إلى البوت.", close: "تم حل المحادثة." };
     return ok(messages[input.action]);
   });
 }

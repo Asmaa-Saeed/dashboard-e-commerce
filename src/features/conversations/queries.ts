@@ -1,40 +1,47 @@
 import "server-only";
 import type { ServerSupabase } from "@/lib/supabase/server";
+import { CHANNELS, type Channel } from "./labels";
 
 export const CONVERSATIONS_PAGE_SIZE = 30;
 const MESSAGES_SHOWN = 200;
 
-export type ConversationFilter = "needs" | "human" | "all";
+export type ConversationQuery = { channel: Channel | null; needs: boolean; page: number };
 
-export async function listConversations(supabase: ServerSupabase, storeId: string, { filter, page }: { filter: ConversationFilter; page: number }) {
+export async function listConversations(supabase: ServerSupabase, storeId: string, { channel, needs, page }: ConversationQuery) {
   const from = (page - 1) * CONVERSATIONS_PAGE_SIZE;
   let query = supabase
     .from("conversations")
-    .select("id, display_name, channel_type, status, handoff_reason, last_message_at, last_message_preview, customer_id, orders(id)", { count: "exact" })
+    .select("id, display_name, username, channel_type, status, handoff_reason, last_message_at, last_message_preview, customer_id, customers(name), orders(id)", { count: "exact" })
     .eq("store_id", storeId)
     .order("last_message_at", { ascending: false, nullsFirst: false })
     .range(from, from + CONVERSATIONS_PAGE_SIZE - 1);
-  if (filter === "needs") query = query.eq("status", "needs_human");
-  if (filter === "human") query = query.eq("status", "human");
+  if (channel) query = query.eq("channel_type", channel);
+  if (needs) query = query.eq("status", "needs_human");
 
   const { data, count, error } = await query;
   if (error) throw new Error(`listConversations: ${error.message}`);
   return { conversations: data, total: count ?? 0 };
 }
 
-export async function countConversations(supabase: ServerSupabase, storeId: string) {
-  const [needs, human, all] = await Promise.all([
-    supabase.from("conversations").select("id", { count: "exact", head: true }).eq("store_id", storeId).eq("status", "needs_human"),
-    supabase.from("conversations").select("id", { count: "exact", head: true }).eq("store_id", storeId).eq("status", "human"),
-    supabase.from("conversations").select("id", { count: "exact", head: true }).eq("store_id", storeId),
+export type ConversationCounts = { all: number; needs: number; needsByChannel: Record<Channel, number> };
+
+/** Totals for the toggle and the channel column: how many conversations wait for a person, per channel. */
+export async function countConversations(supabase: ServerSupabase, storeId: string, channel: Channel | null): Promise<ConversationCounts> {
+  const head = () => supabase.from("conversations").select("id", { count: "exact", head: true }).eq("store_id", storeId);
+  const scoped = () => (channel ? head().eq("channel_type", channel) : head());
+  const [all, needs, ...perChannel] = await Promise.all([
+    scoped(),
+    scoped().eq("status", "needs_human"),
+    ...CHANNELS.map((c) => head().eq("channel_type", c).eq("status", "needs_human")),
   ]);
-  return { needs: needs.count ?? 0, human: human.count ?? 0, all: all.count ?? 0 };
+  const needsByChannel = Object.fromEntries(CHANNELS.map((c, i) => [c, perChannel[i].count ?? 0])) as Record<Channel, number>;
+  return { all: all.count ?? 0, needs: needs.count ?? 0, needsByChannel };
 }
 
 export async function getConversation(supabase: ServerSupabase, storeId: string, conversationId: string) {
   const { data: conversation, error } = await supabase
     .from("conversations")
-    .select("id, display_name, channel_type, status, handoff_reason, handoff_at, bot_paused_until, last_message_at, created_at, customers(name, phone, city), orders(id, ref, status)")
+    .select("id, display_name, username, channel_type, status, handoff_reason, handoff_at, handled_at, bot_paused_until, last_message_at, created_at, customers(name, phone, city), orders(id, ref, status)")
     .eq("store_id", storeId)
     .eq("id", conversationId)
     .maybeSingle();

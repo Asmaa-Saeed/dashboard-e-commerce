@@ -108,3 +108,27 @@ test("notifications are grouped as today, yesterday, then by date in the store's
   assert.deepEqual(groups[2].items.map((i) => i.id), ["d"]);
   assert.match(groups[2].label, /10/);
 });
+
+// ---------------------------------------------------------------- conversations
+import { CHANNELS, conversationHandle, conversationTitle, isChannel } from "../src/features/conversations/labels.ts";
+
+test("conversation title falls back from display name to customer name to «زائر»", () => {
+  assert.equal(conversationTitle({ display_name: "  أم أحمد ", customer_name: "سماح" }), "أم أحمد");
+  assert.equal(conversationTitle({ display_name: "", customer_name: "سماح" }), "سماح");
+  assert.equal(conversationTitle({ display_name: null, customer_name: null }), "زائر");
+});
+
+test("conversation handle shows @username, else the channel name", () => {
+  assert.equal(conversationHandle({ username: "sama_88", channel_type: "instagram" }), "@sama_88");
+  assert.equal(conversationHandle({ username: "@sama_88", channel_type: "instagram" }), "@sama_88");
+  assert.equal(conversationHandle({ username: null, channel_type: "messenger" }), "ماسنجر");
+  assert.equal(conversationHandle({ username: " ", channel_type: "whatsapp" }), "واتساب");
+  assert.equal(conversationHandle({ username: null, channel_type: "telegram" }), "telegram");
+});
+
+test("channel filter only accepts known channels", () => {
+  assert.deepEqual([...CHANNELS], ["whatsapp", "messenger", "instagram", "web_chat"]);
+  assert.equal(isChannel("instagram"), true);
+  assert.equal(isChannel("all"), false);
+  assert.equal(isChannel("x' or 1=1"), false);
+});
