@@ -55,7 +55,7 @@ export function ConversationThread({ storeId, slug, timezone, conversation: conv
       className={cn(
         "flex min-h-0 flex-col bg-surface",
         // phones: the chat takes the whole screen, like a messaging app
-        "max-lg:fixed max-lg:inset-0 max-lg:z-30 max-lg:pt-[env(safe-area-inset-top)]",
+        "max-lg:fixed max-lg:inset-0 max-lg:z-[45] max-lg:pt-[env(safe-area-inset-top)]",
         "lg:rounded-[18px] lg:border lg:border-line lg:shadow-card",
       )}
     >

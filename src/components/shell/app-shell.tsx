@@ -283,7 +283,8 @@ function TopBar({
   return (
     <header
       className={cn(
-        "sticky top-0 z-20 border-b border-line bg-surface/90 pt-[env(safe-area-inset-top)] backdrop-blur-md",
+        // solid, not blurred: a backdrop-filter would trap the bell's fixed bottom sheet inside the header
+        "sticky top-0 z-20 border-b border-line bg-surface pt-[env(safe-area-inset-top)]",
         hiddenOnPhone && "max-lg:hidden",
       )}
     >

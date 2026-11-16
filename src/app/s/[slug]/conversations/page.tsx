@@ -65,7 +65,7 @@ export default async function ConversationsPage({ params, searchParams }: PagePr
 
   return (
     <div className="flex flex-col gap-4 lg:grid lg:h-[calc(100dvh-56px-48px)] lg:min-h-[620px] lg:grid-cols-[76px_minmax(300px,380px)_1fr] lg:gap-4 xl:grid-cols-[210px_minmax(320px,390px)_1fr]">
-      <ChannelRail active={channel} needsByChannel={counts.needsByChannel} hrefFor={(c) => href({ channel: c, page: 1 })} />
+      <ChannelRail hideOnPhone={Boolean(detail)} active={channel} needsByChannel={counts.needsByChannel} hrefFor={(c) => href({ channel: c, page: 1 })} />
 
       <div className={detail ? "hidden min-h-0 lg:flex lg:flex-col" : "flex min-h-0 flex-col"}>
         <ConversationList

@@ -7,20 +7,22 @@ type Props = {
   active: Channel | null;
   needsByChannel: Record<Channel, number>;
   hrefFor: (channel: Channel | null) => string;
+  /** phones: hidden while a chat is open (the chat covers the screen; the chip row would only widen the page) */
+  hideOnPhone?: boolean;
 };
 
 /**
  * Where the conversations come from. A column on wide screens (icons only on medium-wide ones),
  * a row of chips above the list on phones.
  */
-export function ChannelRail({ active, needsByChannel, hrefFor }: Props) {
+export function ChannelRail({ active, needsByChannel, hrefFor, hideOnPhone = false }: Props) {
   const items: Array<{ key: Channel | null; count: number }> = [
     { key: null, count: CHANNELS.reduce((sum, c) => sum + needsByChannel[c], 0) },
     ...CHANNELS.map((c) => ({ key: c, count: needsByChannel[c] })),
   ];
 
   return (
-    <nav aria-label="منصات التواصل" className="lg:flex lg:flex-col lg:rounded-[18px] lg:border lg:border-line lg:bg-surface lg:shadow-card">
+    <nav aria-label="منصات التواصل" className={cn(hideOnPhone && "max-lg:hidden", "lg:flex lg:flex-col lg:rounded-[18px] lg:border lg:border-line lg:bg-surface lg:shadow-card")}>
       <h2 className="hidden px-5 pt-5 pb-3 text-[15px] font-semibold text-ink xl:block">منصات التواصل</h2>
       <ul className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:p-2 xl:px-3 xl:pt-0">
         {items.map(({ key, count }) => {
