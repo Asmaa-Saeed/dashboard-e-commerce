@@ -74,3 +74,37 @@ test("order buttons only offer moves the database allows", () => {
   assert.equal(canMove("delivered", "pending_review"), false);
   assert.equal(canMove("cancelled", "delivered"), false);
 });
+
+// ---------------------------------------------------------------- notifications
+import { groupByDay, NOTIFICATION_KIND_LABEL, NOTIFICATION_KINDS, safeNotificationUrl } from "../src/features/notifications/labels.ts";
+
+test("notification links stay inside the dashboard", () => {
+  assert.equal(safeNotificationUrl("/s/shop/orders?id=1"), "/s/shop/orders?id=1");
+  assert.equal(safeNotificationUrl("/"), "/");
+  for (const bad of ["//evil.com", "/\\evil.com", "https://evil.com", "javascript:alert(1)", "", null, undefined, 42]) {
+    assert.equal(safeNotificationUrl(bad), null, String(bad));
+  }
+});
+
+test("every notification kind from the database has a label", () => {
+  assert.deepEqual([...NOTIFICATION_KINDS], ["order", "handoff", "order_request", "stock", "announcement", "subscription"]);
+  for (const kind of NOTIFICATION_KINDS) assert.ok(NOTIFICATION_KIND_LABEL[kind], kind);
+});
+
+test("notifications are grouped as today, yesterday, then by date in the store's timezone", () => {
+  const now = Date.parse("2026-11-16T10:00:00Z"); // 12:00 in Hebron
+  const items = [
+    { id: "a", created_at: "2026-11-16T09:00:00Z" },
+    { id: "b", created_at: "2026-11-15T23:30:00Z" }, // 01:30 on the 16th in Hebron → today
+    { id: "c", created_at: "2026-11-15T08:00:00Z" },
+    { id: "d", created_at: "2026-11-10T08:00:00Z" },
+  ];
+  const groups = groupByDay(items, "Asia/Hebron", now);
+  assert.deepEqual(groups.map((g) => g.label.length > 0), [true, true, true]);
+  assert.equal(groups[0].label, "اليوم");
+  assert.deepEqual(groups[0].items.map((i) => i.id), ["a", "b"]);
+  assert.equal(groups[1].label, "أمس");
+  assert.deepEqual(groups[1].items.map((i) => i.id), ["c"]);
+  assert.deepEqual(groups[2].items.map((i) => i.id), ["d"]);
+  assert.match(groups[2].label, /10/);
+});
