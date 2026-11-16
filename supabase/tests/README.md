@@ -21,6 +21,11 @@ psql -d t -f 50_staff_reply.sql
 psql -d t -f 60_push_stub.sql
 sed 's/^create extension if not exists pg_net.*$//' ../05_push_notifications.sql | psql -d t
 psql -d t -f 60_push_notifications.sql
+
+# إشعارات اللوحة (الجرس): pg_cron كمان مش موجود محليًا، فبنحط بداله stub
+psql -d t -f 70_cron_stub.sql
+sed 's/^create extension if not exists pg_cron.*$//' ../06_notifications.sql | psql -d t
+psql -d t -v ON_ERROR_STOP=1 -f 70_notifications.sql   # آخر سطر لازم يكون: all notification checks passed
 ```
 
-عدد الـ ERROR المتوقع: 8 ثم 2 ثم 7 ثم 7 ثم 2 ثم 5، وكلها رفض مقصود.
+عدد الـ ERROR المتوقع: 8 ثم 2 ثم 7 ثم 7 ثم 2 ثم 5، وكلها رفض مقصود. ملف `70_notifications.sql` ما بيطلعش ولا ERROR.

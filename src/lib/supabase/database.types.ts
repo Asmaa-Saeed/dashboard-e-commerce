@@ -184,6 +184,7 @@ export type Database = {
           external_user_id: string
           customer_id: string | null
           display_name: string | null
+          username: string | null
           state: Json
           status: string
           handoff_reason: string | null
@@ -204,6 +205,7 @@ export type Database = {
           external_user_id: string
           customer_id?: string | null
           display_name?: string | null
+          username?: string | null
           state?: Json
           status?: string
           handoff_reason?: string | null
@@ -224,6 +226,7 @@ export type Database = {
           external_user_id?: string
           customer_id?: string | null
           display_name?: string | null
+          username?: string | null
           state?: Json
           status?: string
           handoff_reason?: string | null
@@ -465,6 +468,47 @@ export type Database = {
         Relationships: [
           { foreignKeyName: "messages_conversation_id_store_id_fkey"; columns: ["conversation_id", "store_id"]; isOneToOne: false; referencedRelation: "conversations"; referencedColumns: ["id", "store_id"] },
           { foreignKeyName: "messages_store_id_fkey"; columns: ["store_id"]; isOneToOne: false; referencedRelation: "stores"; referencedColumns: ["id"] },
+        ]
+      }
+      notifications: {
+        Row: {
+          id: string
+          store_id: string
+          user_id: string
+          kind: string
+          title: string
+          body: string | null
+          url: string | null
+          dedupe_key: string | null
+          read_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          store_id: string
+          user_id: string
+          kind: string
+          title: string
+          body?: string | null
+          url?: string | null
+          dedupe_key?: string | null
+          read_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          store_id?: string
+          user_id?: string
+          kind?: string
+          title?: string
+          body?: string | null
+          url?: string | null
+          dedupe_key?: string | null
+          read_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          { foreignKeyName: "notifications_store_id_fkey"; columns: ["store_id"]; isOneToOne: false; referencedRelation: "stores"; referencedColumns: ["id"] },
         ]
       }
       order_items: {
@@ -1014,6 +1058,8 @@ export type Database = {
       queue_staff_reply: { Args: { p_conversation: string; p_text: string }; Returns: Json }
       register_push_subscription: { Args: { p_store: string; p_endpoint: string; p_p256dh: string; p_auth: string; p_user_agent?: string | null }; Returns: undefined }
       unregister_push_subscription: { Args: { p_endpoint: string }; Returns: undefined }
+      mark_notifications_read: { Args: { p_store: string; p_ids?: string[] | null }; Returns: number }
+      admin_send_notification: { Args: { p_store: string | null; p_title: string; p_body: string | null; p_url?: string | null }; Returns: number }
       my_stores: { Args: never; Returns: { store_id: string; slug: string; name: string; role: string; brand_color: string; logo_url: string | null }[] }
       store_stats: { Args: { p_store: string; p_from: string; p_to?: string }; Returns: Json }
       store_team: { Args: { p_store: string }; Returns: { user_id: string; email: string; role: string; created_at: string }[] }
