@@ -20,7 +20,8 @@ export const metadata: Metadata = {
   icons: { apple: "/icons/apple-touch-icon.png" },
 };
 
-export const viewport: Viewport = { themeColor: "#ffffff" };
+// viewport-fit=cover lets the installed app draw under the notch; the shell pads with safe-area insets.
+export const viewport: Viewport = { themeColor: "#ffffff", viewportFit: "cover" };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

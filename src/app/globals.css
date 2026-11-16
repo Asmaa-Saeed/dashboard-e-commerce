@@ -109,6 +109,30 @@
   }
 }
 
+@keyframes robot-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@keyframes robot-shadow {
+  0%,
+  100% {
+    transform: scaleX(1);
+    transform-origin: center;
+    transform-box: fill-box;
+  }
+  50% {
+    transform: scaleX(0.86);
+    transform-origin: center;
+    transform-box: fill-box;
+  }
+}
+
 @keyframes ring {
   0% {
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent);
@@ -128,6 +152,19 @@ body {
 body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  /* installed app: no grey flash on tap, no pull-to-refresh bounce fighting the inner scroll areas */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  color: var(--ink);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
 }
 
 @layer base {

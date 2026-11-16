@@ -35,7 +35,7 @@ export function StaffReplyForm({ storeId, conversationId }: { storeId: string; c
         maxLength={1000}
         rows={1}
         placeholder="اكتب ردك على العميل…"
-        className="max-h-40 min-h-10 flex-1 resize-none rounded-control border border-line bg-surface px-3 py-2 text-[14px] leading-relaxed text-ink shadow-card [field-sizing:content] placeholder:text-subtle focus:border-primary focus:ring-[3px] focus:ring-primary/15 focus:outline-none"
+        className="max-h-40 min-h-11 flex-1 resize-none rounded-[22px] border border-line bg-canvas px-4 py-2.5 text-[15px] leading-relaxed text-ink [field-sizing:content] placeholder:text-subtle focus:border-primary focus:bg-surface focus:ring-[3px] focus:ring-primary/15 focus:outline-none lg:text-[14px]"
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
             e.preventDefault();
@@ -43,9 +43,8 @@ export function StaffReplyForm({ storeId, conversationId }: { storeId: string; c
           }
         }}
       />
-      <SubmitButton variant="primary" aria-label="إرسال">
-        <PaperPlaneRight className="size-4 -scale-x-100" weight="fill" />
-        إرسال
+      <SubmitButton variant="primary" aria-label="إرسال" className="size-11 shrink-0 rounded-full p-0">
+        <PaperPlaneRight className="size-5 -scale-x-100" weight="fill" />
       </SubmitButton>
     </form>
   );

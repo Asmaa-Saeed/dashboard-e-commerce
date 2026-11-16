@@ -4,9 +4,10 @@ import { requireAdmin } from "@/lib/auth/dal";
 import { formatDate, formatDateTime, formatMoney, formatNumber } from "@/lib/format";
 import { ActionForm } from "@/components/ui/action-form";
 import { Badge, type Tone } from "@/components/ui/badge";
-import { CrownSimple, Plus, Storefront } from "@/components/ui/icons";
+import { CrownSimple, Megaphone, Plus, Storefront } from "@/components/ui/icons";
 import { LinkButton } from "@/components/ui/button";
-import { Field, Input, Select } from "@/components/ui/form";
+import { Field, Input, Select, Textarea } from "@/components/ui/form";
+import { sendAdminNotification } from "@/features/notifications/actions";
 import { Card, CardTitle, EmptyState, PageHeader } from "@/components/ui/layout";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -134,6 +135,40 @@ export default async function AdminPage() {
             </table>
           </div>
         )}
+      </Card>
+
+      <Card className="flex flex-col gap-4 p-5">
+        <CardTitle icon={<Megaphone className="size-4" />}>إشعار للمتاجر</CardTitle>
+        <p className="text-sm text-muted">
+          يظهر في جرس الإشعارات عند كل فريق المتجر، ويصل إلى هواتفهم إن فعّلوا الإشعارات. تذكير انتهاء الاشتراك يُرسل تلقائيًا لصاحب المتجر قبل 3 أيام، فلا حاجة لكتابته هنا.
+        </p>
+        <ActionForm action={sendAdminNotification} className="grid gap-4 sm:grid-cols-2">
+          <Field label="إلى" htmlFor="notif-target">
+            <Select id="notif-target" name="target" defaultValue="all">
+              <option value="all">كل المتاجر</option>
+              {stores.map((s) => (
+                <option key={s.store_id} value={s.store_id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="العنوان" htmlFor="notif-title" hint="مثال: ميزة جديدة: الرد على العملاء من اللوحة">
+            <Input id="notif-title" name="title" required maxLength={120} />
+          </Field>
+          <Field label="النص (اختياري)" htmlFor="notif-body" className="sm:col-span-2">
+            <Textarea id="notif-body" name="body" maxLength={500} rows={3} />
+          </Field>
+          <Field label="رابط داخل اللوحة (اختياري)" htmlFor="notif-url" hint="يبدأ بـ / مثل /stores، ويُفتح عند الضغط على الإشعار">
+            <Input id="notif-url" name="url" dir="ltr" maxLength={300} pattern="/.*" />
+          </Field>
+          <div className="flex items-end">
+            <SubmitButton variant="primary">
+              <Megaphone className="size-4" />
+              إرسال الإشعار
+            </SubmitButton>
+          </div>
+        </ActionForm>
       </Card>
 
       <Card className="flex flex-col gap-4 p-5">

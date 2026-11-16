@@ -16,7 +16,7 @@
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 
-type Payload = { store_id: string; title: string; body?: string; url?: string; tag?: string };
+type Payload = { store_id: string; title: string; body?: string; url?: string; tag?: string; user_ids?: string[] };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -60,10 +60,11 @@ Deno.serve(async (req) => {
     auth: { persistSession: false },
   });
 
-  const { data: subs, error } = await supabase
-    .from("push_subscriptions")
-    .select("id, endpoint, p256dh, auth")
-    .eq("store_id", payload.store_id);
+  // Optional: only these people's phones (e.g. subscription reminders go to owners only).
+  const userIds = Array.isArray(payload.user_ids) ? payload.user_ids.filter((id) => typeof id === "string" && UUID.test(id)).slice(0, 50) : null;
+  let query = supabase.from("push_subscriptions").select("id, endpoint, p256dh, auth").eq("store_id", payload.store_id);
+  if (userIds) query = query.in("user_id", userIds);
+  const { data: subs, error } = await query;
   if (error) return json(500, { error: error.message });
   if (!subs?.length) return json(200, { sent: 0, removed: 0 });
 

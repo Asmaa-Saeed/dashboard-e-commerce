@@ -88,7 +88,7 @@ export function PwaInstall() {
   if (mode === "hidden") return null;
 
   return (
-    <div className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex justify-center">
+    <div className="fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex justify-center max-lg:bottom-[calc(80px+env(safe-area-inset-bottom))]">
       <div
         role="dialog"
         aria-label="تثبيت التطبيق"

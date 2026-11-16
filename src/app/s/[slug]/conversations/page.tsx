@@ -1,28 +1,26 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { z } from "zod";
 import { requireStoreBySlug } from "@/lib/auth/dal";
-import { formatDateTime, formatTimeAgo } from "@/lib/format";
 import { whatsappUrl } from "@/lib/contact";
-import { cn } from "@/lib/cn";
-import { Badge } from "@/components/ui/badge";
-import { ExternalButton, LinkButton } from "@/components/ui/button";
-import { ActionForm } from "@/components/ui/action-form";
-import { SubmitButton } from "@/components/ui/submit-button";
-import { EmptyState, PageHeader, SegmentLinks } from "@/components/ui/layout";
-import { ArrowRight, ChatsCircle, Check, HandPalm, Info, Receipt, Robot, WarningCircle, WhatsappLogo } from "@/components/ui/icons";
+import { staffReplyConfig } from "@/lib/server-env";
+import { Info } from "@/components/ui/icons";
 import { Pagination } from "@/components/pagination";
 import { CONVERSATIONS_PAGE_SIZE, countConversations, deliveryOf, getConversation, listConversations } from "@/features/conversations/queries";
+import { CHANNELS, type Channel } from "@/features/conversations/labels";
 import { StaffReplyForm } from "@/features/conversations/components/staff-reply-form";
-import { staffReplyConfig } from "@/lib/server-env";
-import { updateConversation } from "@/features/conversations/actions";
-import { CHANNEL_LABEL, handoffLabel } from "@/features/conversations/labels";
+import { ChannelRail } from "@/features/conversations/components/channel-rail";
+import { CHANNEL_UI } from "@/features/conversations/components/channel-ui";
+import { ConversationList } from "@/features/conversations/components/conversation-list";
+import { ConversationThread, NoConversationSelected } from "@/features/conversations/components/conversation-thread";
 
 export const metadata: Metadata = { title: "المحادثات" };
 
 const searchSchema = z.object({
-  filter: z.enum(["needs", "human", "all"]).optional().catch(undefined),
+  channel: z.enum(CHANNELS).optional().catch(undefined),
+  // "needs" also keeps old links (?filter=needs) working
+  needs: z.literal("1").optional().catch(undefined),
+  filter: z.string().optional().catch(undefined),
   id: z.uuid().optional().catch(undefined),
   page: z.coerce.number().int().min(1).max(1000).optional().catch(undefined),
 });
@@ -31,218 +29,82 @@ export default async function ConversationsPage({ params, searchParams }: PagePr
   const { slug } = await params;
   const query = searchSchema.parse(await searchParams);
   const { supabase, store } = await requireStoreBySlug(slug);
-  const filter = query.filter ?? "needs";
+  const channel: Channel | null = query.channel ?? null;
+  const needs = query.needs === "1" || query.filter === "needs";
   const page = query.page ?? 1;
 
   const [{ conversations, total }, counts, detail] = await Promise.all([
-    listConversations(supabase, store.id, { filter, page }),
-    countConversations(supabase, store.id),
+    listConversations(supabase, store.id, { channel, needs, page }),
+    countConversations(supabase, store.id, channel),
     query.id ? getConversation(supabase, store.id, query.id) : Promise.resolve(null),
   ]);
 
   const base = `/s/${store.slug}/conversations`;
-  const href = (next: { filter?: string; id?: string; page?: number }) => {
+  const href = (next: { channel?: Channel | null; needs?: boolean; id?: string; page?: number }) => {
     const sp = new URLSearchParams();
-    sp.set("filter", next.filter ?? filter);
+    const c = next.channel === undefined ? channel : next.channel;
+    if (c) sp.set("channel", c);
+    if (next.needs ?? needs) sp.set("needs", "1");
     if (next.id) sp.set("id", next.id);
     if (next.page && next.page > 1) sp.set("page", String(next.page));
-    return `${base}?${sp}`;
+    const qs = sp.toString();
+    return qs ? `${base}?${qs}` : base;
   };
+
   const conv = detail?.conversation;
-  const customerWa = whatsappUrl(conv?.customers?.phone);
   const canReplyHere = !!conv && (conv.channel_type === "messenger" || conv.channel_type === "instagram");
-  const windowOpen = !!detail?.replyWindowOpen;
+  const reply: ReactNode = !conv ? null : !canReplyHere ? (
+    <ReplyNote>الرد من اللوحة متاح لمحادثات ماسنجر وإنستغرام فقط.</ReplyNote>
+  ) : !staffReplyConfig ? (
+    <ReplyNote>الرد من اللوحة غير مفعّل بعد. تواصل مع فريق الدعم.</ReplyNote>
+  ) : !detail?.replyWindowOpen ? (
+    <ReplyNote>مرّت أكثر من 24 ساعة على آخر رسالة من العميل، وMeta لا تسمح بالرد بعدها. تواصل معه على واتساب إن أمكن.</ReplyNote>
+  ) : (
+    <StaffReplyForm storeId={store.id} conversationId={conv.id} />
+  );
 
   return (
-    <>
-      <PageHeader title="المحادثات" description="عندما يحوّل البوت عميلًا إلى موظف، تظهر المحادثة في «تحتاج إلى رد». يمكنك الرد على عملاء ماسنجر وإنستغرام من هنا مباشرة، ويتوقف البوت تلقائيًا عند ردك." />
+    <div className="flex flex-col gap-4 lg:grid lg:h-[calc(100dvh-56px-48px)] lg:min-h-[620px] lg:grid-cols-[76px_minmax(300px,380px)_1fr] lg:gap-4 xl:grid-cols-[210px_minmax(320px,390px)_1fr]">
+      <ChannelRail hideOnPhone={Boolean(detail)} active={channel} needsByChannel={counts.needsByChannel} hrefFor={(c) => href({ channel: c, page: 1 })} />
 
-      <div className="grid min-h-[620px] overflow-hidden rounded-card border border-line bg-surface shadow-card lg:grid-cols-[360px_1fr]">
-        {/* list */}
-        <div className={cn("flex min-h-0 flex-col border-line lg:border-e", detail && "hidden lg:flex")}>
-          <div className="border-b border-line p-3">
-            <SegmentLinks
-              label="تصفية المحادثات"
-              items={[
-                { href: href({ filter: "needs" }), label: "تحتاج إلى رد", active: filter === "needs", count: counts.needs },
-                { href: href({ filter: "human" }), label: "يرد عليها موظف", active: filter === "human", count: counts.human },
-                { href: href({ filter: "all" }), label: "الكل", active: filter === "all", count: counts.all },
-              ]}
-            />
-          </div>
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            {conversations.length === 0 ? (
-              <EmptyState icon={<ChatsCircle className="size-6" />} title={filter === "needs" ? "لا توجد محادثات تنتظر الرد" : "لا توجد محادثات"}>
-                {filter === "needs" ? "كل شيء على ما يرام، البوت يتولى الردود." : null}
-              </EmptyState>
-            ) : (
-              <ul className="space-y-1 p-2">
-                {conversations.map((c) => {
-                  const selected = c.id === query.id;
-                  const reason = c.status === "needs_human" ? handoffLabel(c.handoff_reason) : null;
-                  const name = c.display_name ?? "زائر";
-                  return (
-                    <li key={c.id}>
-                      <Link
-                        href={href({ id: c.id, page })}
-                        scroll={false}
-                        aria-current={selected ? "true" : undefined}
-                        className={cn("flex gap-3 rounded-control px-3 py-3 transition", selected ? "bg-primary-soft" : "hover:bg-surface-muted")}
-                      >
-                        <span className="relative">
-                          <span className="grid size-11 place-items-center rounded-full bg-primary-soft text-[15px] font-semibold text-primary-ink">{name.trim().charAt(0)}</span>
-                          {c.status === "needs_human" ? (
-                            <span className="absolute -end-0.5 -bottom-0.5 grid size-5 place-items-center rounded-full border-2 border-surface bg-warning text-white">
-                              <HandPalm className="size-2.5" weight="fill" />
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-center justify-between gap-2">
-                            <span className="truncate text-[14px] font-semibold text-ink">{name}</span>
-                            <span className="shrink-0 text-[11px] text-subtle tabular">{formatTimeAgo(c.last_message_at, store.timezone)}</span>
-                          </span>
-                          <span className="mt-0.5 block truncate text-[13px] text-muted">{c.last_message_preview ?? "—"}</span>
-                          <span className="mt-1.5 flex flex-wrap gap-1">
-                            <Badge>{CHANNEL_LABEL[c.channel_type] ?? c.channel_type}</Badge>
-                            {reason ? <Badge tone="warning">{reason}</Badge> : null}
-                            {c.status === "human" ? <Badge tone="info">يرد عليها موظف</Badge> : null}
-                            {c.orders.length ? <Badge tone="success">أرسل طلبًا</Badge> : null}
-                          </span>
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-          <Pagination page={page} total={total} pageSize={CONVERSATIONS_PAGE_SIZE} hrefFor={(p) => href({ page: p })} />
-        </div>
-
-        {/* thread */}
-        {detail && conv ? (
-          <section aria-label="المحادثة" className="flex min-h-0 flex-col">
-            <header className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
-              <Link href={href({ page })} scroll={false} className="grid size-9 shrink-0 place-items-center rounded-chip text-muted hover:bg-surface-muted lg:hidden" aria-label="العودة إلى المحادثات">
-                <ArrowRight className="size-5" />
-              </Link>
-              <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft font-semibold text-primary-ink">{(conv.display_name ?? conv.customers?.name ?? "ز").trim().charAt(0)}</span>
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate text-[15px] font-semibold text-ink">{conv.display_name ?? conv.customers?.name ?? "زائر"}</h2>
-                <p className="truncate text-[12px] text-muted">
-                  {CHANNEL_LABEL[conv.channel_type] ?? conv.channel_type} · بدأت في {formatDateTime(conv.created_at, store.timezone)}
-                </p>
-              </div>
-              <span className="flex items-center gap-2 rounded-control border border-line px-3 py-1.5 text-[12px]">
-                {conv.status === "human" ? <HandPalm className="size-4 text-info" /> : <Robot className="size-4 text-success" />}
-                <span className="font-semibold">{conv.status === "human" ? "البوت متوقف، ويرد موظف" : "البوت يرد تلقائيًا"}</span>
-              </span>
-            </header>
-
-            {conv.status === "needs_human" ? (
-              <div className="flex items-center gap-3 border-b border-warning/30 bg-warning-soft px-4 py-2.5">
-                <HandPalm className="size-5 shrink-0 text-warning" />
-                <p className="flex-1 text-[13px] font-semibold text-ink">حوّل البوت العميل إلى موظف: {handoffLabel(conv.handoff_reason)}</p>
-              </div>
-            ) : null}
-
-            <ol className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-canvas p-4" aria-label="الرسائل">
-              {detail.truncated ? <li className="text-center text-[12px] text-subtle">آخر 200 رسالة فقط</li> : null}
-              {detail.messages.map((m) => (
-                <li key={m.id} className={cn("flex", m.role === "customer" ? "justify-start" : "justify-end")}>
-                  <div
-                    className={cn(
-                      "max-w-[80%] rounded-2xl px-3.5 py-2 text-[14px] shadow-card",
-                      m.role === "customer" ? "rounded-ss-md bg-surface text-ink" : m.role === "staff" ? "rounded-se-md bg-info text-white" : "rounded-se-md bg-primary text-on-primary",
-                    )}
-                  >
-                    <p className="whitespace-pre-wrap break-words">{m.text}</p>
-                    <p className={cn("mt-1 flex items-center gap-1 text-[11px] tabular", m.role === "customer" ? "text-subtle" : "opacity-75")}>
-                      {m.role === "customer" ? "العميل" : m.role === "staff" ? "الفريق" : "البوت"} · {formatDateTime(m.created_at, store.timezone)}
-                      {m.role === "staff" ? <DeliveryStatus delivery={deliveryOf(m.meta)} /> : null}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-
-            <div className="border-t border-line p-3">
-              {!canReplyHere ? (
-                <ReplyNote>الرد من اللوحة متاح لمحادثات ماسنجر وإنستغرام فقط.</ReplyNote>
-              ) : !staffReplyConfig ? (
-                <ReplyNote>الرد من اللوحة غير مفعّل بعد. تواصل مع فريق الدعم.</ReplyNote>
-              ) : !windowOpen ? (
-                <ReplyNote>مرّت أكثر من 24 ساعة على آخر رسالة من العميل، وMeta لا تسمح بالرد بعدها. تواصل معه على واتساب إن أمكن.</ReplyNote>
-              ) : (
-                <StaffReplyForm storeId={store.id} conversationId={conv.id} />
-              )}
-            </div>
-
-            <footer className="flex flex-wrap gap-2 border-t border-line p-3 pt-0 sm:pt-3">
-              {conv.status !== "human" ? (
-                <ActionForm action={updateConversation} hiddenFields={{ storeId: store.id, conversationId: conv.id, action: "take_over" }}>
-                  <SubmitButton variant="primary">
-                    <HandPalm className="size-4" />
-                    سأرد بنفسي
-                  </SubmitButton>
-                </ActionForm>
-              ) : null}
-              {conv.status === "human" || conv.status === "needs_human" ? (
-                <ActionForm action={updateConversation} hiddenFields={{ storeId: store.id, conversationId: conv.id, action: "back_to_bot" }}>
-                  <SubmitButton variant="outline">
-                    <Robot className="size-4" />
-                    انتهيت، أعدها إلى البوت
-                  </SubmitButton>
-                </ActionForm>
-              ) : null}
-              {customerWa ? (
-                <ExternalButton href={customerWa}>
-                  <WhatsappLogo className="size-4" />
-                  واتساب العميل
-                </ExternalButton>
-              ) : null}
-              {conv.orders.map((o) => (
-                <LinkButton key={o.id} href={`/s/${store.slug}/orders?id=${o.id}`} variant="outline">
-                  <Receipt className="size-4" />
-                  <span dir="ltr">{o.ref}</span>
-                </LinkButton>
-              ))}
-            </footer>
-          </section>
-        ) : (
-          <div className="hidden place-items-center bg-canvas p-6 text-center lg:grid">
-            <div>
-              <span className="mx-auto grid size-14 place-items-center rounded-card bg-surface text-subtle shadow-card">
-                <ChatsCircle className="size-7" />
-              </span>
-              <p className="mt-3 text-[14px] font-semibold text-muted">اختر محادثة لعرضها</p>
-            </div>
-          </div>
-        )}
+      <div className={detail ? "hidden min-h-0 lg:flex lg:flex-col" : "flex min-h-0 flex-col"}>
+        <ConversationList
+          title={channel ? `رسائل ${CHANNEL_UI[channel].label}` : "كل الرسائل"}
+          conversations={conversations}
+          selectedId={query.id ?? null}
+          needsOnly={needs}
+          needsCount={counts.needs}
+          timezone={store.timezone}
+          hrefFor={(id) => href({ id, page })}
+          toggleHref={href({ needs: !needs, page: 1 })}
+          pagination={<Pagination page={page} total={total} pageSize={CONVERSATIONS_PAGE_SIZE} hrefFor={(p) => href({ page: p })} />}
+        />
       </div>
-    </>
+
+      {detail && conv ? (
+        <ConversationThread
+          storeId={store.id}
+          slug={store.slug}
+          timezone={store.timezone}
+          conversation={conv}
+          messages={detail.messages.map((m) => ({ id: m.id, role: m.role, text: m.text, created_at: m.created_at, delivery: deliveryOf(m.meta) }))}
+          truncated={detail.truncated}
+          backHref={href({ page })}
+          customerWhatsapp={whatsappUrl(conv.customers?.phone)}
+          reply={reply}
+        />
+      ) : (
+        <NoConversationSelected />
+      )}
+    </div>
   );
 }
 
 function ReplyNote({ children }: { children: ReactNode }) {
   return (
-    <p className="flex items-start gap-2 rounded-control bg-surface-muted px-3 py-2.5 text-[13px] text-muted">
+    <p className="flex items-start gap-2 rounded-[14px] bg-surface-muted px-3.5 py-2.5 text-[13px] leading-relaxed text-muted">
       <Info className="mt-0.5 size-4 shrink-0" />
       {children}
     </p>
   );
-}
-
-function DeliveryStatus({ delivery }: { delivery: ReturnType<typeof deliveryOf> }) {
-  if (delivery === "sent") return <Check className="size-3.5" aria-label="تم الإرسال" />;
-  if (delivery === "failed")
-    return (
-      <span className="inline-flex items-center gap-0.5 rounded-full bg-white/90 px-1.5 font-semibold text-danger">
-        <WarningCircle className="size-3.5" weight="fill" />
-        لم يُرسل
-      </span>
-    );
-  if (delivery === "queued" || delivery === "sending") return <span>· جارٍ الإرسال</span>;
-  return null;
 }
