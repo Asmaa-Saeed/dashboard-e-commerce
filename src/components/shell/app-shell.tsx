@@ -1,36 +1,56 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { signOut } from "@/app/login/actions";
 import { cn } from "@/lib/cn";
 import { PushButton } from "@/components/pwa/push-notifications";
 import { stopPushOnThisDevice } from "@/components/pwa/use-push";
-import { Bell, BellSlash, ChartBar, ChatsCircle, GearSix, List, Receipt, SignOut, SquaresFour, Tag, X, type Icon } from "@/components/ui/icons";
+import {
+  Bell,
+  ChartBar,
+  ChatsCircle,
+  DotsThree,
+  GearSix,
+  Receipt,
+  SignOut,
+  SpeakerHigh,
+  SpeakerSlash,
+  SquaresFour,
+  Tag,
+  X,
+  type Icon,
+} from "@/components/ui/icons";
 import type { NavCounts } from "@/features/stores/nav-counts";
+import type { NotificationsSummary } from "@/features/notifications/queries";
+import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import { useStoreLive, type LiveState } from "./store-live";
 
 type Props = {
-  store: { name: string; slug: string; logoUrl: string | null };
+  store: { id: string; name: string; slug: string; logoUrl: string | null; timezone: string };
+  userId: string;
   email: string;
   roleLabel: string;
   canManage: boolean;
   isAdmin: boolean;
   counts: NavCounts;
+  notifications: NotificationsSummary;
   children: ReactNode;
 };
 
-type NavItem = { href: string; label: string; icon: Icon; count?: number };
+type NavItem = { href: string; label: string; short?: string; icon: Icon; count?: number };
 
-export function AppShell({ store, email, roleLabel, canManage, isAdmin, counts, children }: Props) {
+export function AppShell({ store, userId, email, roleLabel, canManage, isAdmin, counts, notifications, children }: Props) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const base = `/s/${store.slug}`;
   const work: NavItem[] = [
     { href: `${base}/orders`, label: "الطلبات", icon: Receipt, count: counts.pendingOrders },
     { href: `${base}/conversations`, label: "المحادثات", icon: ChatsCircle, count: counts.needsReply },
-    { href: `${base}/products`, label: "المنتجات والمخزون", icon: Tag },
+    { href: `${base}/products`, label: "المنتجات والمخزون", short: "المنتجات", icon: Tag },
+    { href: `${base}/notifications`, label: "الإشعارات", icon: Bell, count: notifications.unread },
   ];
   const insight: NavItem[] = [
     { href: `${base}/stats`, label: "الإحصائيات", icon: ChartBar },
@@ -39,6 +59,8 @@ export function AppShell({ store, email, roleLabel, canManage, isAdmin, counts, 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const current = [...work, ...insight].find((item) => isActive(item.href));
   const close = () => setDrawerOpen(false);
+  // Inside an open chat on a phone the tab bar steps aside, like a native messaging app.
+  const inThread = isActive(`${base}/conversations`) && searchParams.has("id");
 
   return (
     <div className="min-h-dvh lg:flex">
@@ -46,16 +68,17 @@ export function AppShell({ store, email, roleLabel, canManage, isAdmin, counts, 
         انتقل إلى المحتوى
       </a>
 
-      {/* sidebar: fixed on large screens, a drawer on phones */}
+      {/* sidebar: fixed on large screens, a drawer ("المزيد") on phones */}
       <aside
         className={cn(
-          "fixed inset-y-0 start-0 z-40 flex w-[256px] flex-col border-e border-line bg-surface transition-transform duration-300 lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0",
+          "fixed inset-y-0 start-0 z-50 flex w-[272px] flex-col border-e border-line bg-surface pt-[env(safe-area-inset-top)] transition-transform duration-300 lg:sticky lg:top-0 lg:z-auto lg:h-dvh lg:w-[256px] lg:translate-x-0 lg:pt-0",
           drawerOpen ? "translate-x-0" : "translate-x-full",
         )}
+        aria-label="القائمة"
       >
         <div className="flex items-center gap-2 p-3">
           <StoreCard name={store.name} logoUrl={store.logoUrl} roleLabel={roleLabel} adminHref={isAdmin ? "/admin" : null} />
-          <button type="button" onClick={close} className="grid size-9 shrink-0 place-items-center rounded-control text-muted hover:bg-surface-muted lg:hidden" aria-label="إغلاق القائمة">
+          <button type="button" onClick={close} className="grid size-9 shrink-0 place-items-center rounded-full text-muted hover:bg-surface-muted lg:hidden" aria-label="إغلاق القائمة">
             <X className="size-5" />
           </button>
         </div>
@@ -65,7 +88,9 @@ export function AppShell({ store, email, roleLabel, canManage, isAdmin, counts, 
           <NavGroup title="المتابعة والإعداد" items={insight} isActive={isActive} onNavigate={close} />
         </nav>
 
-        <div className="border-t border-line p-3">
+        <DeviceControls />
+
+        <div className="border-t border-line p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <div className="flex items-center gap-2.5 px-2 py-1.5">
             <span className="grid size-8 shrink-0 place-items-center rounded-full bg-surface-muted text-[13px] font-semibold uppercase text-muted">{email.charAt(0)}</span>
             <div className="min-w-0 flex-1">
@@ -75,7 +100,7 @@ export function AppShell({ store, email, roleLabel, canManage, isAdmin, counts, 
               <p className="text-[12px] text-muted">{roleLabel}</p>
             </div>
             <form action={async () => { await stopPushOnThisDevice(); await signOut(); }}>
-              <button type="submit" className="grid size-8 shrink-0 place-items-center rounded-control text-subtle transition hover:bg-danger-soft hover:text-danger" aria-label="تسجيل الخروج" title="تسجيل الخروج">
+              <button type="submit" className="grid size-9 shrink-0 place-items-center rounded-control text-subtle transition hover:bg-danger-soft hover:text-danger" aria-label="تسجيل الخروج" title="تسجيل الخروج">
                 <SignOut className="size-[18px]" />
               </button>
             </form>
@@ -83,14 +108,29 @@ export function AppShell({ store, email, roleLabel, canManage, isAdmin, counts, 
         </div>
       </aside>
 
-      {drawerOpen ? <div className="fixed inset-0 z-30 bg-ink/40 lg:hidden" onClick={close} aria-hidden="true" /> : null}
+      {drawerOpen ? <div className="fixed inset-0 z-40 bg-ink/40 lg:hidden" onClick={close} aria-hidden="true" /> : null}
 
       <div className="min-w-0 flex-1">
-        <TopBar storeName={store.name} pageLabel={current?.label ?? null} onMenu={() => setDrawerOpen(true)} />
-        <main id="main" tabIndex={-1} className="mx-auto flex max-w-[1400px] flex-col gap-6 px-4 py-6 outline-none sm:px-6 lg:px-8">
+        <TopBar
+          store={store}
+          userId={userId}
+          pageLabel={current?.label ?? null}
+          notifications={notifications}
+          hiddenOnPhone={inThread}
+        />
+        <main
+          id="main"
+          tabIndex={-1}
+          className={cn(
+            "mx-auto flex max-w-[1400px] flex-col gap-5 px-4 py-5 outline-none sm:px-6 lg:gap-6 lg:px-8 lg:py-6 lg:pb-6",
+            inThread ? "max-lg:p-0 max-lg:pb-0" : "pb-[calc(84px+env(safe-area-inset-bottom))]",
+          )}
+        >
           {children}
         </main>
       </div>
+
+      {inThread ? null : <BottomTabs items={work} isActive={isActive} onMore={() => setDrawerOpen(true)} moreActive={insight.some((i) => isActive(i.href))} />}
     </div>
   );
 }
@@ -110,7 +150,7 @@ function NavGroup({ title, items, isActive, onNavigate }: { title: string; items
                 aria-current={active ? "page" : undefined}
                 onClick={onNavigate}
                 className={cn(
-                  "flex h-9 items-center gap-2.5 rounded-control px-2.5 text-[14px] transition",
+                  "flex h-10 items-center gap-2.5 rounded-control px-2.5 text-[14px] transition lg:h-9",
                   active ? "bg-primary-soft font-semibold text-primary-ink" : "font-medium text-muted hover:bg-surface-muted hover:text-ink",
                 )}
               >
@@ -127,6 +167,71 @@ function NavGroup({ title, items, isActive, onNavigate }: { title: string; items
         })}
       </ul>
     </div>
+  );
+}
+
+/** Phones: this device's alert sound and phone notifications, inside the "المزيد" drawer. */
+function DeviceControls() {
+  const { soundOn, setSoundOn } = useStoreLive();
+  return (
+    <div className="border-t border-line px-3 py-3 lg:hidden">
+      <p className="px-2.5 pb-2 text-[12px] font-medium text-subtle">هذا الجهاز</p>
+      <div className="flex items-center gap-2 px-1">
+        <PushButton />
+        <button
+          type="button"
+          onClick={() => setSoundOn(!soundOn)}
+          className={cn(
+            "flex h-9 flex-1 items-center gap-2 rounded-control border bg-surface px-3 text-[13px] font-medium shadow-card transition",
+            soundOn ? "border-line text-muted" : "border-danger/30 text-danger",
+          )}
+        >
+          {soundOn ? <SpeakerHigh className="size-[18px]" /> : <SpeakerSlash className="size-[18px]" />}
+          {soundOn ? "صوت التنبيه مفعّل" : "صوت التنبيه متوقف"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Phone navigation: four daily tabs plus "المزيد" (the drawer), above the home indicator. */
+function BottomTabs({ items, isActive, onMore, moreActive }: { items: NavItem[]; isActive: (href: string) => boolean; onMore: () => void; moreActive: boolean }) {
+  const cell = "relative flex flex-1 flex-col items-center justify-center gap-1 pt-2 pb-1.5 text-[11px] font-medium transition active:scale-95";
+  return (
+    <nav
+      aria-label="التنقل السريع"
+      className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_20px_-12px_rgb(16_24_40/0.18)] backdrop-blur-md lg:hidden"
+    >
+      <ul className="mx-auto flex max-w-lg">
+        {items.map((item) => {
+          const active = isActive(item.href);
+          const ItemIcon = item.icon;
+          return (
+            <li key={item.href} className="flex flex-1">
+              <Link href={item.href} aria-current={active ? "page" : undefined} className={cn(cell, active ? "text-primary-ink" : "text-subtle")}>
+                <span className={cn("relative grid h-8 w-14 place-items-center rounded-full transition", active && "bg-primary-soft")}>
+                  <ItemIcon weight={active ? "fill" : "regular"} className={cn("size-[22px]", active ? "text-primary" : "")} />
+                  {item.count ? (
+                    <span className="absolute -top-1 end-1.5 grid h-[17px] min-w-[17px] place-items-center rounded-full border-2 border-surface bg-danger px-1 text-[10px] leading-none font-bold text-white tabular">
+                      {item.count > 99 ? "99+" : item.count}
+                    </span>
+                  ) : null}
+                </span>
+                <span className={cn(active && "font-semibold")}>{item.short ?? item.label}</span>
+              </Link>
+            </li>
+          );
+        })}
+        <li className="flex flex-1">
+          <button type="button" onClick={onMore} className={cn(cell, moreActive ? "text-primary-ink" : "text-subtle")}>
+            <span className={cn("grid h-8 w-14 place-items-center rounded-full", moreActive && "bg-primary-soft")}>
+              <DotsThree weight="bold" className={cn("size-[22px]", moreActive && "text-primary")} />
+            </span>
+            <span className={cn(moreActive && "font-semibold")}>المزيد</span>
+          </button>
+        </li>
+      </ul>
+    </nav>
   );
 }
 
@@ -152,45 +257,69 @@ function StoreCard({ name, logoUrl, roleLabel, adminHref }: { name: string; logo
   );
 }
 
-function StoreLogo({ name, logoUrl }: { name: string; logoUrl: string | null }) {
+function StoreLogo({ name, logoUrl, className }: { name: string; logoUrl: string | null; className?: string }) {
   return logoUrl ? (
     // eslint-disable-next-line @next/next/no-img-element -- the store's own logo, from its site
-    <img src={logoUrl} alt="" className="size-8 shrink-0 rounded-[6px] border border-line object-cover" />
+    <img src={logoUrl} alt="" className={cn("size-8 shrink-0 rounded-[8px] border border-line object-cover", className)} />
   ) : (
-    <span className="grid size-8 shrink-0 place-items-center rounded-[6px] bg-primary text-[14px] font-semibold text-on-primary">{name.trim().charAt(0)}</span>
+    <span className={cn("grid size-8 shrink-0 place-items-center rounded-[8px] bg-primary text-[14px] font-semibold text-on-primary", className)}>{name.trim().charAt(0)}</span>
   );
 }
 
-function TopBar({ storeName, pageLabel, onMenu }: { storeName: string; pageLabel: string | null; onMenu: () => void }) {
+function TopBar({
+  store,
+  userId,
+  pageLabel,
+  notifications,
+  hiddenOnPhone,
+}: {
+  store: Props["store"];
+  userId: string;
+  pageLabel: string | null;
+  notifications: NotificationsSummary;
+  hiddenOnPhone: boolean;
+}) {
   const { live, soundOn, setSoundOn } = useStoreLive();
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-surface/90 px-4 backdrop-blur sm:px-6 lg:px-8">
-      <button type="button" onClick={onMenu} className="grid size-9 place-items-center rounded-control border border-line bg-surface text-ink shadow-card lg:hidden" aria-label="فتح القائمة">
-        <List className="size-[18px]" />
-      </button>
-      <nav aria-label="المسار" className="flex min-w-0 items-center gap-2 text-[14px]">
-        <span className="hidden truncate text-muted sm:inline">{storeName}</span>
-        {pageLabel ? (
-          <>
-            <span className="hidden text-subtle sm:inline" aria-hidden="true">
-              /
-            </span>
-            <span className="truncate font-medium text-ink">{pageLabel}</span>
-          </>
-        ) : null}
-      </nav>
-      <div className="ms-auto flex items-center gap-2">
-        <LiveBadge state={live} />
-        <PushButton />
-        <button
-          type="button"
-          onClick={() => setSoundOn(!soundOn)}
-          className={cn("grid size-9 place-items-center rounded-control border bg-surface shadow-card transition", soundOn ? "border-line text-muted hover:text-ink" : "border-danger/30 text-danger")}
-          aria-label={soundOn ? "إيقاف صوت التنبيه" : "تشغيل صوت التنبيه"}
-          title={soundOn ? "صوت التنبيه مفعّل" : "صوت التنبيه متوقف"}
-        >
-          {soundOn ? <Bell className="size-[18px]" /> : <BellSlash className="size-[18px]" />}
-        </button>
+    <header
+      className={cn(
+        "sticky top-0 z-20 border-b border-line bg-surface/90 pt-[env(safe-area-inset-top)] backdrop-blur-md",
+        hiddenOnPhone && "max-lg:hidden",
+      )}
+    >
+      <div className="flex h-14 items-center gap-3 px-4 sm:px-6 lg:px-8">
+        {/* phones: the store's logo and the page name, like an app title bar */}
+        <StoreLogo name={store.name} logoUrl={store.logoUrl} className="lg:hidden" />
+        <nav aria-label="المسار" className="flex min-w-0 items-center gap-2 text-[14px]">
+          <span className="hidden truncate text-muted lg:inline">{store.name}</span>
+          {pageLabel ? (
+            <>
+              <span className="hidden text-subtle lg:inline" aria-hidden="true">
+                /
+              </span>
+              <span className="truncate text-[17px] font-semibold text-ink lg:text-[14px] lg:font-medium">{pageLabel}</span>
+            </>
+          ) : null}
+        </nav>
+        <div className="ms-auto flex items-center gap-2">
+          <LiveBadge state={live} />
+          <span className="hidden sm:contents">
+            <PushButton />
+          </span>
+          <button
+            type="button"
+            onClick={() => setSoundOn(!soundOn)}
+            className={cn(
+              "hidden size-9 place-items-center rounded-control border bg-surface shadow-card transition sm:grid",
+              soundOn ? "border-line text-muted hover:text-ink" : "border-danger/30 text-danger",
+            )}
+            aria-label={soundOn ? "إيقاف صوت التنبيه" : "تشغيل صوت التنبيه"}
+            title={soundOn ? "صوت التنبيه مفعّل" : "صوت التنبيه متوقف"}
+          >
+            {soundOn ? <SpeakerHigh className="size-[18px]" /> : <SpeakerSlash className="size-[18px]" />}
+          </button>
+          <NotificationBell storeId={store.id} userId={userId} slug={store.slug} timezone={store.timezone} items={notifications.items} unread={notifications.unread} />
+        </div>
       </div>
     </header>
   );
@@ -205,7 +334,11 @@ const LIVE_UI: Record<LiveState, { label: string; dot: string }> = {
 function LiveBadge({ state }: { state: LiveState }) {
   const ui = LIVE_UI[state];
   return (
-    <span className="flex h-9 items-center gap-2 rounded-control border border-line bg-surface px-3 text-[13px] font-medium text-muted shadow-card" title="تظهر الطلبات والرسائل الجديدة تلقائيًا دون تحديث الصفحة">
+    <span
+      className="flex h-9 items-center gap-2 rounded-full border border-line bg-surface px-2.5 text-[13px] font-medium text-muted shadow-card sm:rounded-control sm:px-3"
+      title="تظهر الطلبات والرسائل الجديدة تلقائيًا دون تحديث الصفحة"
+      aria-label={ui.label}
+    >
       <span className="relative flex size-2">
         {state === "live" ? <span className={cn("absolute inset-0 animate-ping rounded-full opacity-60", ui.dot)} /> : null}
         <span className={cn("relative size-2 rounded-full", ui.dot)} />
